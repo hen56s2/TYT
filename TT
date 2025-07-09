@@ -10,7 +10,7 @@ local hopTimer = getgenv().hop_timer or 3
 local TargetPetNames = getgenv().TargetPetNames or {}
 local webhook = getgenv().webhook or ""
 
--- === SMART HOP SYSTEM ===
+-- === SMART HOP SYSTEM (High Population First) ===
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
@@ -34,11 +34,12 @@ end
 
 local function TPReturner()
     local Site
-    if foundAnything == "" then
-        Site = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"))
-    else
-        Site = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything))
+    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
+    if foundAnything ~= "" then
+        baseURL = baseURL .. "&cursor=" .. foundAnything
     end
+
+    Site = HttpService:JSONDecode(game:HttpGet(baseURL))
 
     if Site.nextPageCursor then
         foundAnything = Site.nextPageCursor
@@ -47,7 +48,9 @@ local function TPReturner()
     for _, v in pairs(Site.data) do
         local id = tostring(v.id)
         local possible = true
-        if tonumber(v.playing) < tonumber(v.maxPlayers) then
+        local fillRatio = tonumber(v.playing) / tonumber(v.maxPlayers)
+
+        if v.playing < v.maxPlayers and fillRatio >= 0.7 then
             for _, existing in pairs(AllIDs) do
                 if id == tostring(existing) then
                     possible = false
