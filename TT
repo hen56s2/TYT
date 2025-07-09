@@ -10,7 +10,7 @@ local hopTimer = getgenv().hop_timer or 3
 local TargetPetNames = getgenv().TargetPetNames or {}
 local webhook = getgenv().webhook or ""
 
--- === SMART HOP SYSTEM (High Population First) ===
+-- === SMART HOP SYSTEM (High Pop First) ===
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
@@ -33,13 +33,12 @@ local function saveServerID(id)
 end
 
 local function TPReturner()
-    local Site
     local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
     if foundAnything ~= "" then
         baseURL = baseURL .. "&cursor=" .. foundAnything
     end
 
-    Site = HttpService:JSONDecode(game:HttpGet(baseURL))
+    local Site = HttpService:JSONDecode(game:HttpGet(baseURL))
 
     if Site.nextPageCursor then
         foundAnything = Site.nextPageCursor
@@ -47,8 +46,8 @@ local function TPReturner()
 
     for _, v in pairs(Site.data) do
         local id = tostring(v.id)
-        local possible = true
         local fillRatio = tonumber(v.playing) / tonumber(v.maxPlayers)
+        local possible = true
 
         if v.playing < v.maxPlayers and fillRatio >= 0.7 then
             for _, existing in pairs(AllIDs) do
@@ -107,7 +106,7 @@ local function sendWebhookMessage(title, description, color)
     end
 end
 
--- === FIND YOUR OWN BASE ===
+-- === FIND YOUR BASE ===
 local function findMyBase()
     local plots = Workspace:WaitForChild("Plots")
     for _, model in pairs(plots:GetChildren()) do
@@ -171,16 +170,23 @@ local function hasTargetBrainrotInOthers()
     return false
 end
 
--- === MAIN LOGIC ===
+-- === MAIN LOOP ===
 task.spawn(function()
     loadServerIDs()
-    print("[SCAN] Scanning for Brainrots...")
-    if not hasTargetBrainrotInOthers() then
-        print("[NO BRAINROT] Hopping in " .. hopTimer .. "s")
-        sendWebhookMessage("✅ No Brainrot Found", "No targets in this server. Hopping in **" .. hopTimer .. "** seconds.\nJobId: `" .. game.JobId .. "`", 65280)
-        task.wait(hopTimer)
-        hop()
-    else
-        print("[STAYING] Brainrot target found. Staying.")
+
+    while true do
+        print("[SCAN] Checking for Brainrots...")
+        local found = hasTargetBrainrotInOthers()
+
+        if not found then
+            print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
+            sendWebhookMessage("✅ No Brainrot Found", "No targets in this server. Hopping in **" .. hopTimer .. "** seconds.\nJobId: `" .. game.JobId .. "`", 65280)
+            task.wait(hopTimer)
+            hop()
+            break
+        else
+            print("[FOUND] Still in server, rechecking in 10s...")
+            task.wait(10)
+        end
     end
 end)
