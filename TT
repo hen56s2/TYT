@@ -1,0 +1,141 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+
+-- === CONFIG ===
+local PlaceID = game.PlaceId
+local hopTimer = getgenv().hop_timer or 3
+local TargetPetNames = getgenv().TargetPetNames or {}
+
+-- === SMART HOP SYSTEM ===
+local AllIDs = {}
+local foundAnything = ""
+local actualHour = os.date("!*t").hour
+local success, result = pcall(function()
+    AllIDs = HttpService:JSONDecode(readfile("NotSameServers.json"))
+end)
+if not success then
+    AllIDs = { actualHour }
+    writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+end
+
+local function TPReturner()
+    local Site
+    if foundAnything == "" then
+        Site = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"))
+    else
+        Site = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything))
+    end
+
+    if Site.nextPageCursor then
+        foundAnything = Site.nextPageCursor
+    end
+
+    for _, v in pairs(Site.data) do
+        local id = tostring(v.id)
+        local possible = true
+        if tonumber(v.playing) < tonumber(v.maxPlayers) then
+            for _, existing in pairs(AllIDs) do
+                if id == tostring(existing) then
+                    possible = false
+                    break
+                end
+            end
+
+            if possible then
+                table.insert(AllIDs, id)
+                writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+                print("[HOP] Teleporting to server ID:", id)
+                TeleportService:TeleportToPlaceInstance(PlaceID, id, LocalPlayer)
+                wait(4)
+                return
+            end
+        end
+    end
+end
+
+local function hop()
+    pcall(function()
+        TPReturner()
+        if foundAnything ~= "" then
+            TPReturner()
+        end
+    end)
+end
+
+-- === FIND YOUR OWN BASE ===
+local function findMyBase()
+    local plots = Workspace:WaitForChild("Plots")
+    for _, model in pairs(plots:GetChildren()) do
+        local ok, label = pcall(function()
+            return model:FindFirstChild("PlotSign", true)
+                and model.PlotSign.SurfaceGui.Frame.TextLabel
+        end)
+        if ok and label and label:IsA("TextLabel") then
+            if string.find(label.Text, LocalPlayer.Name .. "'s Base") then
+                return model
+            end
+        end
+    end
+    return nil
+end
+
+-- === CHECK FOR TARGET BRAINROTS IN OTHER BASES ===
+local function hasTargetBrainrotInOthers()
+    local myBase = findMyBase()
+    local plots = Workspace:WaitForChild("Plots")
+
+    for _, model in pairs(plots:GetChildren()) do
+        if model ~= myBase then
+            local ok, label = pcall(function()
+                return model:FindFirstChild("PlotSign", true)
+                    and model.PlotSign.SurfaceGui.Frame.TextLabel
+            end)
+            if ok and label and label:IsA("TextLabel") then
+                if string.find(label.Text, "'s Base") and not string.find(label.Text, LocalPlayer.Name .. "'s Base") then
+                    local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                    if animalPodiums then
+                        for _, podium in pairs(animalPodiums:GetChildren()) do
+                            local path = podium:FindFirstChild("Base")
+                            if path then
+                                path = path:FindFirstChild("Spawn")
+                                if path then
+                                    path = path:FindFirstChild("Attachment")
+                                    if path then
+                                        path = path:FindFirstChild("AnimalOverhead")
+                                        if path then
+                                            local displayName = path:FindFirstChild("DisplayName")
+                                            if displayName and displayName:IsA("TextLabel") then
+                                                for _, name in ipairs(TargetPetNames) do
+                                                    if displayName.Text == name then
+                                                        print("[FOUND BRAINROT] " .. name)
+                                                        return true
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- === MAIN LOGIC ===
+task.spawn(function()
+    print("[BRAINROT CHECK] Scanning...")
+    if not hasTargetBrainrotInOthers() then
+        print("[NO BRAINROT] Hopping in " .. hopTimer .. "s")
+        task.wait(hopTimer)
+        hop()
+    else
+        print("[FOUND TARGET BRAINROT] Staying in this server.")
+    end
+end)
