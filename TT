@@ -32,7 +32,7 @@ local function saveServerID(id)
 end
 
 local function TPReturner()
-    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
+    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
     if foundAnything ~= "" then
         baseURL = baseURL .. "&cursor=" .. foundAnything
     end
@@ -43,11 +43,13 @@ local function TPReturner()
         foundAnything = Site.nextPageCursor
     end
 
+    local validServers = {}
+    
     for _, v in pairs(Site.data) do
         local id = tostring(v.id)
         local possible = true
 
-        if v.playing < v.maxPlayers then
+        if v.playing < v.maxPlayers and v.playing > 0 then
             for _, existing in pairs(AllIDs) do
                 if id == tostring(existing) then
                     possible = false
@@ -56,13 +58,26 @@ local function TPReturner()
             end
 
             if possible then
-                saveServerID(id)
-                print("[HOP] Teleporting to server ID:", id, "with", v.playing, "players")
-                TeleportService:TeleportToPlaceInstance(PlaceID, id, LocalPlayer)
-                wait(4)
-                return
+                table.insert(validServers, {
+                    id = id,
+                    playerCount = v.playing,
+                    maxPlayers = v.maxPlayers
+                })
             end
         end
+    end
+
+    table.sort(validServers, function(a, b)
+        return a.playerCount > b.playerCount
+    end)
+
+    if #validServers > 0 then
+        local bestServer = validServers[1]
+        saveServerID(bestServer.id)
+        print("[HOP] Teleporting to server ID:", bestServer.id, "with", bestServer.playerCount, "players")
+        TeleportService:TeleportToPlaceInstance(PlaceID, bestServer.id, LocalPlayer)
+        wait(4)
+        return
     end
 end
 
@@ -91,7 +106,7 @@ local function sendCombinedWebhookMessage(foundNames)
     local maxPlayers = Players.MaxPlayers
 
     local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
-    local FOOTER_ICON = "https://i.postimg.cc/TYYNDqLy/360-F-344120291-QJGt1-B10-MXhq45q-Es-EFEKFGfpt7z-O6-Of-5.jpg"
+    local FOOTER_ICON = "https://i.postimg.cc/QMC9xXgs/smallcircle.webp"
 
     local allNames = table.concat(foundNames, ", ")
 
@@ -193,9 +208,9 @@ task.spawn(function()
         local foundNames = scanForBrainrots()
 
         if #foundNames > 0 then
-            print("[FOUND] Brainrots in server: " .. table.concat(foundNames, ", "))
+            print("[FOUND] Brainrots in server: ", table.concat(foundNames, ", "))
             sendCombinedWebhookMessage(foundNames)
-            task.wait(10) -- recheck in 10s
+            task.wait(10)
         else
             print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
             task.wait(hopTimer)
