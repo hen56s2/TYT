@@ -91,7 +91,7 @@ local function sendCombinedWebhookMessage(foundNames)
     local maxPlayers = Players.MaxPlayers
 
     local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
-    local FOOTER_ICON = "https://i.postimg.cc/QMC9xXgs/smallcircle.webp"
+    local FOOTER_ICON = "https://i.postimg.cc/TYYNDqLy/360-F-344120291-QJGt1-B10-MXhq45q-Es-EFEKFGfpt7z-O6-Of-5.jpg"
 
     local allNames = table.concat(foundNames, ", ")
 
