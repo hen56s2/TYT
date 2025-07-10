@@ -10,7 +10,7 @@ local hopTimer = getgenv().hop_timer or 3
 local TargetPetNames = getgenv().TargetPetNames or {}
 local webhook = getgenv().webhook or ""
 
--- === SMART HOP SYSTEM (High Pop First) ===
+-- === SERVER HOP SYSTEM ===
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
@@ -33,7 +33,7 @@ local function saveServerID(id)
 end
 
 local function TPReturner()
-    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
+    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
     if foundAnything ~= "" then
         baseURL = baseURL .. "&cursor=" .. foundAnything
     end
@@ -46,10 +46,9 @@ local function TPReturner()
 
     for _, v in pairs(Site.data) do
         local id = tostring(v.id)
-        local fillRatio = tonumber(v.playing) / tonumber(v.maxPlayers)
         local possible = true
 
-        if v.playing < v.maxPlayers and fillRatio >= 0.7 then
+        if v.playing < v.maxPlayers then
             for _, existing in pairs(AllIDs) do
                 if id == tostring(existing) then
                     possible = false
@@ -77,22 +76,40 @@ local function hop()
     end)
 end
 
--- === WEBHOOK LOGIC ===
-local function sendWebhookMessage(title, description, color)
-    if webhook == "" then return end
+-- === WEBHOOK (Lucky Egg Style) ===
+local function sendWebhookMessage(brainrotName)
+    if webhook == "" or not brainrotName then return end
+    local currentDate = os.date("%m/%d")
+    local currentTime = os.date("%I:%M %p")
+    local jobId = game.JobId
+    local placeId = game.PlaceId
+
+    local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
+    local joinLink = "https://roblox.com/games/start?placeId=" .. placeId .. "&gameInstanceId=" .. jobId
+
+    local playerCount = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers
+
+    local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
 
     local data = {
-        ["embeds"] = {{
-            ["title"] = title,
-            ["description"] = description,
-            ["type"] = "rich",
-            ["color"] = color,
-            ["footer"] = { ["text"] = "🎭 Hub Brainrot Notifier" },
-            ["timestamp"] = DateTime.now():ToIsoDate()
+        embeds = {{
+            title = "🧠 Target Brainrot Found: " .. brainrotName .. "!",
+            description =
+                "**👥 Players:** " .. playerCount .. "/" .. maxPlayers .. "\n\n" ..
+                "**📜 Teleport Script:**\n```lua\n" .. joinScript .. "\n```\n" ..
+                "**[🔗 Click To Join The Server !](" .. joinLink .. ")**",
+            color = 0x00FF00,
+            thumbnail = {
+                url = DEFAULT_BRAINROT_IMAGE
+            },
+            footer = {
+                text = "🧠 Hub Brainrot Notifier • " .. currentDate .. " • " .. currentTime
+            }
         }}
     }
 
-    local success, err = pcall(function()
+    pcall(function()
         request({
             Url = webhook,
             Method = "POST",
@@ -100,13 +117,9 @@ local function sendWebhookMessage(title, description, color)
             Body = HttpService:JSONEncode(data)
         })
     end)
-
-    if not success then
-        warn("[WEBHOOK ERROR]", err)
-    end
 end
 
--- === FIND YOUR BASE ===
+-- === IDENTIFY YOUR BASE ===
 local function findMyBase()
     local plots = Workspace:WaitForChild("Plots")
     for _, model in pairs(plots:GetChildren()) do
@@ -123,7 +136,7 @@ local function findMyBase()
     return nil
 end
 
--- === CHECK FOR BRAINROTS ===
+-- === BRAINROT CHECK ===
 local function hasTargetBrainrotInOthers()
     local myBase = findMyBase()
     local plots = Workspace:WaitForChild("Plots")
@@ -152,7 +165,7 @@ local function hasTargetBrainrotInOthers()
                                                 for _, name in ipairs(TargetPetNames) do
                                                     if displayName.Text == name then
                                                         print("[FOUND BRAINROT] " .. name)
-                                                        sendWebhookMessage("🟥 Brainrot Found!", "**" .. name .. "** is in this server!\nJobId: `" .. game.JobId .. "`", 16711680)
+                                                        sendWebhookMessage(name)
                                                         return true
                                                     end
                                                 end
@@ -180,12 +193,11 @@ task.spawn(function()
 
         if not found then
             print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
-            sendWebhookMessage("✅ No Brainrot Found", "No targets in this server. Hopping in **" .. hopTimer .. "** seconds.\nJobId: `" .. game.JobId .. "`", 65280)
             task.wait(hopTimer)
             hop()
             break
         else
-            print("[FOUND] Still in server, rechecking in 10s...")
+            print("[FOUND] Brainrot still here. Rechecking in 10s...")
             task.wait(10)
         end
     end
