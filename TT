@@ -4,13 +4,11 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 
--- === CONFIG ===
 local PlaceID = game.PlaceId
 local hopTimer = getgenv().hop_timer or 3
 local TargetPetNames = getgenv().TargetPetNames or {}
 local webhook = getgenv().webhook or ""
 
--- === SERVER HOP SYSTEM ===
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
@@ -76,7 +74,6 @@ local function hop()
     end)
 end
 
--- === WEBHOOK (Lucky Egg Style) ===
 local function sendWebhookMessage(brainrotName)
     if webhook == "" or not brainrotName then return end
     local currentDate = os.date("%m/%d")
@@ -90,7 +87,8 @@ local function sendWebhookMessage(brainrotName)
     local playerCount = #Players:GetPlayers()
     local maxPlayers = Players.MaxPlayers
 
-    local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/DZrmnZRQ/images-4-Photoroom.png"
+    local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
+    local FOOTER_ICON = "https://i.postimg.cc/TYYNDqLy/360-F-344120291-QJGt1-B10-MXhq45q-Es-EFEKFGfpt7z-O6-Of-5.jpg"
 
     local data = {
         embeds = {{
@@ -104,7 +102,8 @@ local function sendWebhookMessage(brainrotName)
                 url = DEFAULT_BRAINROT_IMAGE
             },
             footer = {
-                text = "🧠 Hub Brainrot Notifier • " .. currentDate .. " • " .. currentTime
+                text = "Hub Brainrot Notifier • " .. currentDate .. " • " .. currentTime,
+                icon_url = FOOTER_ICON
             }
         }}
     }
@@ -119,7 +118,6 @@ local function sendWebhookMessage(brainrotName)
     end)
 end
 
--- === IDENTIFY YOUR BASE ===
 local function findMyBase()
     local plots = Workspace:WaitForChild("Plots")
     for _, model in pairs(plots:GetChildren()) do
@@ -136,7 +134,6 @@ local function findMyBase()
     return nil
 end
 
--- === BRAINROT CHECK ===
 local function hasTargetBrainrotInOthers()
     local myBase = findMyBase()
     local plots = Workspace:WaitForChild("Plots")
@@ -183,7 +180,6 @@ local function hasTargetBrainrotInOthers()
     return false
 end
 
--- === MAIN LOOP ===
 task.spawn(function()
     loadServerIDs()
 
