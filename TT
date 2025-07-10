@@ -1,78 +1,84 @@
---// Brainrot Notifier Hub
-
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
-local LocalPlayer = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
 
---// Config
-getgenv().webhook = ""
-getgenv().TargetPetNames = {
-    "Graipuss Medussi",
-    "Los Tralaleritos",
-    "La Vacca Saturno Saturnita",
-    "La Grande Combination", 
-    "Sammyni Spyderini",
-    "Garama and Madundung",
-}
-
---// Tracking
-local brainrotCountPerBase = {}
-
---// Teleport Hop Function (same logic as before)
+-- === CONFIG ===
 local PlaceID = game.PlaceId
+local hopTimer = getgenv().hop_timer or 3
+local TargetPetNames = getgenv().TargetPetNames or {}
+local webhook = getgenv().webhook or ""
+
+-- === SERVER HOP SYSTEM ===
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
-pcall(function()
-    AllIDs = HttpService:JSONDecode(readfile("NotSameServers.json"))
-end)
-if typeof(AllIDs) ~= "table" then AllIDs = {actualHour} end
+
+local function loadServerIDs()
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile("NotSameServers.json"))
+    end)
+    if success and typeof(data) == "table" then
+        AllIDs = data
+    else
+        AllIDs = { actualHour }
+        writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+    end
+end
+
+local function saveServerID(id)
+    table.insert(AllIDs, id)
+    writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+end
 
 local function TPReturner()
-    local Site
-    if foundAnything == "" then
-        Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-    else
-        Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
+    if foundAnything ~= "" then
+        baseURL = baseURL .. "&cursor=" .. foundAnything
     end
-    for _,v in pairs(Site.data) do
+
+    local Site = HttpService:JSONDecode(game:HttpGet(baseURL))
+
+    if Site.nextPageCursor then
+        foundAnything = Site.nextPageCursor
+    end
+
+    for _, v in pairs(Site.data) do
         local id = tostring(v.id)
-        if v.playing < v.maxPlayers and not table.find(AllIDs, id) then
-            table.insert(AllIDs, id)
-            writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
-            TeleportService:TeleportToPlaceInstance(PlaceID, id, LocalPlayer)
-            wait(4)
-        end
-    end
-    foundAnything = Site.nextPageCursor or ""
-end
+        local possible = true
 
-function hop()
-    brainrotCountPerBase = {}
-    TPReturner()
-end
+        if v.playing < v.maxPlayers then
+            for _, existing in pairs(AllIDs) do
+                if id == tostring(existing) then
+                    possible = false
+                    break
+                end
+            end
 
---// Find My Base
-local function findMyBase()
-    for _, model in pairs(Workspace:WaitForChild("Plots"):GetChildren()) do
-        local success, result = pcall(function()
-            return model:FindFirstChild("PlotSign", true)
-                and model.PlotSign.SurfaceGui.Frame.TextLabel
-        end)
-        if success and result and result:IsA("TextLabel") then
-            if string.find(result.Text, LocalPlayer.Name .. "'s Base") then
-                return model
+            if possible then
+                saveServerID(id)
+                print("[HOP] Teleporting to server ID:", id)
+                TeleportService:TeleportToPlaceInstance(PlaceID, id, LocalPlayer)
+                wait(4)
+                return
             end
         end
     end
-    return nil
 end
 
---// Webhook Sender
-local function sendWebhookMessage(brainrotName, playerNames)
-    if webhook == "" or not brainrotName or #playerNames == 0 then return end
+local function hop()
+    pcall(function()
+        TPReturner()
+        if foundAnything ~= "" then
+            TPReturner()
+        end
+    end)
+end
+
+-- === WEBHOOK (Lucky Egg Style) ===
+local function sendWebhookMessage(brainrotName)
+    if webhook == "" or not brainrotName then return end
     local currentDate = os.date("%m/%d")
     local currentTime = os.date("%I:%M %p")
     local jobId = game.JobId
@@ -81,21 +87,24 @@ local function sendWebhookMessage(brainrotName, playerNames)
     local joinScript = "game:GetService('TeleportService'):TeleportToPlaceInstance(" .. placeId .. ", '" .. jobId .. "', game.Players.LocalPlayer)"
     local joinLink = "https://roblox.com/games/start?placeId=" .. placeId .. "&gameInstanceId=" .. jobId
 
-    local playerList = table.concat(playerNames, ", ")
+    local playerCount = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers
+
+    local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/DZrmnZRQ/images-4-Photoroom.png"
 
     local data = {
         embeds = {{
-            title = "🦰 Target Brainrot Found: " .. brainrotName .. "!",
-            description = "**👤 Players Got:** `" .. playerList .. "`\n" ..
-                         "**👥 Players:** " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers .. "\n\n" ..
-                         "**📜 Teleport Script:**\n```lua\n" .. joinScript .. "\n```\n" ..
-                         "**[🔗 Click To Join The Server !](" .. joinLink .. ")**",
+            title = "🧠 Target Brainrot Found: " .. brainrotName .. "!",
+            description =
+                "**👥 Players:** " .. playerCount .. "/" .. maxPlayers .. "\n\n" ..
+                "**📜 Teleport Script:**\n```lua\n" .. joinScript .. "\n```\n" ..
+                "**[🔗 Click To Join The Server !](" .. joinLink .. ")**",
             color = 0x00FF00,
             thumbnail = {
-                url = "https://i.postimg.cc/DZrmnZRQ/images-4-Photoroom.png"
+                url = DEFAULT_BRAINROT_IMAGE
             },
             footer = {
-                text = "🦰 Hub Brainrot Notifier \226\128\162 " .. currentDate .. " \226\128\162 " .. currentTime
+                text = "🧠 Hub Brainrot Notifier • " .. currentDate .. " • " .. currentTime
             }
         }}
     }
@@ -110,11 +119,27 @@ local function sendWebhookMessage(brainrotName, playerNames)
     end)
 end
 
---// Check Brainrots in All Bases Except Yours
+-- === IDENTIFY YOUR BASE ===
+local function findMyBase()
+    local plots = Workspace:WaitForChild("Plots")
+    for _, model in pairs(plots:GetChildren()) do
+        local ok, label = pcall(function()
+            return model:FindFirstChild("PlotSign", true)
+                and model.PlotSign.SurfaceGui.Frame.TextLabel
+        end)
+        if ok and label and label:IsA("TextLabel") then
+            if string.find(label.Text, LocalPlayer.Name .. "'s Base") then
+                return model
+            end
+        end
+    end
+    return nil
+end
+
+-- === BRAINROT CHECK ===
 local function hasTargetBrainrotInOthers()
     local myBase = findMyBase()
     local plots = Workspace:WaitForChild("Plots")
-    local brainrotToPlayers = {}
 
     for _, model in pairs(plots:GetChildren()) do
         if model ~= myBase then
@@ -122,40 +147,32 @@ local function hasTargetBrainrotInOthers()
                 return model:FindFirstChild("PlotSign", true)
                     and model.PlotSign.SurfaceGui.Frame.TextLabel
             end)
-
             if ok and label and label:IsA("TextLabel") then
-                local baseName = label.Text
-                local playerName = baseName:match("^(.-)'s Base") or baseName
-
-                if not string.find(baseName, LocalPlayer.Name .. "'s Base") then
-                    local podiums = model:FindFirstChild("AnimalPodiums")
-                    if podiums then
-                        local foundNames = {}
-                        for _, podium in pairs(podiums:GetChildren()) do
+                if string.find(label.Text, "'s Base") and not string.find(label.Text, LocalPlayer.Name .. "'s Base") then
+                    local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                    if animalPodiums then
+                        for _, podium in pairs(animalPodiums:GetChildren()) do
                             local path = podium:FindFirstChild("Base")
-                            if path then path = path:FindFirstChild("Spawn") end
-                            if path then path = path:FindFirstChild("Attachment") end
-                            if path then path = path:FindFirstChild("AnimalOverhead") end
                             if path then
-                                local displayName = path:FindFirstChild("DisplayName")
-                                if displayName and displayName:IsA("TextLabel") then
-                                    for _, target in ipairs(TargetPetNames) do
-                                        if displayName.Text == target then
-                                            foundNames[target] = (foundNames[target] or 0) + 1
+                                path = path:FindFirstChild("Spawn")
+                                if path then
+                                    path = path:FindFirstChild("Attachment")
+                                    if path then
+                                        path = path:FindFirstChild("AnimalOverhead")
+                                        if path then
+                                            local displayName = path:FindFirstChild("DisplayName")
+                                            if displayName and displayName:IsA("TextLabel") then
+                                                for _, name in ipairs(TargetPetNames) do
+                                                    if displayName.Text == name then
+                                                        print("[FOUND BRAINROT] " .. name)
+                                                        sendWebhookMessage(name)
+                                                        return true
+                                                    end
+                                                end
+                                            end
                                         end
                                     end
                                 end
-                            end
-                        end
-
-                        for name, count in pairs(foundNames) do
-                            brainrotCountPerBase[baseName] = brainrotCountPerBase[baseName] or {}
-                            local lastCount = brainrotCountPerBase[baseName][name] or 0
-
-                            if count > lastCount then
-                                brainrotCountPerBase[baseName][name] = count
-                                brainrotToPlayers[name] = brainrotToPlayers[name] or {}
-                                table.insert(brainrotToPlayers[name], playerName)
                             end
                         end
                     end
@@ -163,23 +180,25 @@ local function hasTargetBrainrotInOthers()
             end
         end
     end
-
-    for brainrotName, playerList in pairs(brainrotToPlayers) do
-        sendWebhookMessage(brainrotName, playerList)
-    end
-
-    return next(brainrotToPlayers) ~= nil
+    return false
 end
 
---// Main Loop
-spawn(function()
-    while wait(10) do
+-- === MAIN LOOP ===
+task.spawn(function()
+    loadServerIDs()
+
+    while true do
+        print("[SCAN] Checking for Brainrots...")
         local found = hasTargetBrainrotInOthers()
+
         if not found then
-            wait(3)
+            print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
+            task.wait(hopTimer)
             hop()
+            break
+        else
+            print("[FOUND] Brainrot still here. Rechecking in 10s...")
+            task.wait(10)
         end
     end
 end)
-
-print("[Brainrot Notifier Hub] Loaded!")
