@@ -43,13 +43,15 @@ local function TPReturner()
         foundAnything = Site.nextPageCursor
     end
 
+    -- Collect all valid servers first
     local validServers = {}
     
     for _, v in pairs(Site.data) do
         local id = tostring(v.id)
         local possible = true
 
-        if v.playing < v.maxPlayers and v.playing > 0 then
+        -- Check if server is not full (max 8 players) and we haven't been there before
+        if v.playing < 8 and v.playing > 0 then
             for _, existing in pairs(AllIDs) do
                 if id == tostring(existing) then
                     possible = false
@@ -60,21 +62,22 @@ local function TPReturner()
             if possible then
                 table.insert(validServers, {
                     id = id,
-                    playerCount = v.playing,
-                    maxPlayers = v.maxPlayers
+                    playerCount = v.playing
                 })
             end
         end
     end
 
+    -- Sort servers by player count (highest first)
     table.sort(validServers, function(a, b)
         return a.playerCount > b.playerCount
     end)
 
+    -- Join the server with the most players
     if #validServers > 0 then
         local bestServer = validServers[1]
         saveServerID(bestServer.id)
-        print("[HOP] Teleporting to server ID:", bestServer.id, "with", bestServer.playerCount, "players")
+        print("[HOP] Teleporting to server ID:", bestServer.id, "with", bestServer.playerCount, "/8 players")
         TeleportService:TeleportToPlaceInstance(PlaceID, bestServer.id, LocalPlayer)
         wait(4)
         return
@@ -210,7 +213,7 @@ task.spawn(function()
         if #foundNames > 0 then
             print("[FOUND] Brainrots in server: ", table.concat(foundNames, ", "))
             sendCombinedWebhookMessage(foundNames)
-            task.wait(10)
+            task.wait(10) -- recheck in 10s to avoid spamming
         else
             print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
             task.wait(hopTimer)
