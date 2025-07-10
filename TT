@@ -88,7 +88,7 @@ local function sendWebhookMessage(brainrotName)
     local maxPlayers = Players.MaxPlayers
 
     local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
-    local FOOTER_ICON = "https://i.postimg.cc/TYYNDqLy/360-F-344120291-QJGt1-B10-MXhq45q-Es-EFEKFGfpt7z-O6-Of-5.jpg"
+    local FOOTER_ICON = "https://i.postimg.cc/QMC9xXgs/smallcircle.webp"
 
     local data = {
         embeds = {{
@@ -137,6 +137,7 @@ end
 local function hasTargetBrainrotInOthers()
     local myBase = findMyBase()
     local plots = Workspace:WaitForChild("Plots")
+    local foundAny = false
 
     for _, model in pairs(plots:GetChildren()) do
         if model ~= myBase then
@@ -163,7 +164,7 @@ local function hasTargetBrainrotInOthers()
                                                     if displayName.Text == name then
                                                         print("[FOUND BRAINROT] " .. name)
                                                         sendWebhookMessage(name)
-                                                        return true
+                                                        foundAny = true
                                                     end
                                                 end
                                             end
@@ -177,7 +178,8 @@ local function hasTargetBrainrotInOthers()
             end
         end
     end
-    return false
+
+    return foundAny
 end
 
 task.spawn(function()
