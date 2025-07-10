@@ -50,8 +50,8 @@ local function TPReturner()
         local id = tostring(v.id)
         local possible = true
 
-        -- Check if server is not full (max 8 players) and we haven't been there before
-        if v.playing < 8 and v.playing > 0 then
+        -- Check if server is not full (max 8 players), has 4+ players, and we haven't been there before
+        if v.playing < 8 and v.playing >= 4 then
             for _, existing in pairs(AllIDs) do
                 if id == tostring(existing) then
                     possible = false
