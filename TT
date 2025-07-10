@@ -9,7 +9,12 @@ local TeleportService = game:GetService("TeleportService")
 --// Config
 getgenv().webhook = ""
 getgenv().TargetPetNames = {
-    "Noobini Pizzanini",
+    "Graipuss Medussi",
+    "Los Tralaleritos",
+    "La Vacca Saturno Saturnita",
+    "La Grande Combination", 
+    "Sammyni Spyderini",
+    "Garama and Madundung",
 }
 
 --// Tracking
