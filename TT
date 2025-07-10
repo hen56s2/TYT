@@ -12,6 +12,7 @@ local webhook = getgenv().webhook or ""
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
+local alreadySent = false
 
 local function loadServerIDs()
     local success, data = pcall(function()
@@ -74,8 +75,10 @@ local function hop()
     end)
 end
 
-local function sendWebhookMessage(brainrotName)
-    if webhook == "" or not brainrotName then return end
+local function sendCombinedWebhookMessage(foundNames)
+    if webhook == "" or #foundNames == 0 or alreadySent then return end
+    alreadySent = true
+
     local currentDate = os.date("%m/%d")
     local currentTime = os.date("%I:%M %p")
     local jobId = game.JobId
@@ -90,9 +93,11 @@ local function sendWebhookMessage(brainrotName)
     local DEFAULT_BRAINROT_IMAGE = "https://i.postimg.cc/6QF94mbh/no-Filter-2025-07-10-T130038-101.webp"
     local FOOTER_ICON = "https://i.postimg.cc/QMC9xXgs/smallcircle.webp"
 
+    local allNames = table.concat(foundNames, ", ")
+
     local data = {
         embeds = {{
-            title = "🧠 Target Brainrot Found: " .. brainrotName .. "!",
+            title = "🧠 Target Brainrots Found: " .. allNames .. "!",
             description =
                 "**👥 Players:** " .. playerCount .. "/" .. maxPlayers .. "\n\n" ..
                 "**📜 Teleport Script:**\n```lua\n" .. joinScript .. "\n```\n" ..
@@ -134,10 +139,10 @@ local function findMyBase()
     return nil
 end
 
-local function hasTargetBrainrotInOthers()
+local function scanForBrainrots()
     local myBase = findMyBase()
     local plots = Workspace:WaitForChild("Plots")
-    local foundAny = false
+    local foundNames = {}
 
     for _, model in pairs(plots:GetChildren()) do
         if model ~= myBase then
@@ -161,10 +166,8 @@ local function hasTargetBrainrotInOthers()
                                             local displayName = path:FindFirstChild("DisplayName")
                                             if displayName and displayName:IsA("TextLabel") then
                                                 for _, name in ipairs(TargetPetNames) do
-                                                    if displayName.Text == name then
-                                                        print("[FOUND BRAINROT] " .. name)
-                                                        sendWebhookMessage(name)
-                                                        foundAny = true
+                                                    if displayName.Text == name and not table.find(foundNames, name) then
+                                                        table.insert(foundNames, name)
                                                     end
                                                 end
                                             end
@@ -179,7 +182,7 @@ local function hasTargetBrainrotInOthers()
         end
     end
 
-    return foundAny
+    return foundNames
 end
 
 task.spawn(function()
@@ -187,16 +190,17 @@ task.spawn(function()
 
     while true do
         print("[SCAN] Checking for Brainrots...")
-        local found = hasTargetBrainrotInOthers()
+        local foundNames = scanForBrainrots()
 
-        if not found then
+        if #foundNames > 0 then
+            print("[FOUND] Brainrots in server: ", table.concat(foundNames, ", "))
+            sendCombinedWebhookMessage(foundNames)
+            task.wait(10) -- recheck in 10s to avoid spamming
+        else
             print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
             task.wait(hopTimer)
             hop()
             break
-        else
-            print("[FOUND] Brainrot still here. Rechecking in 10s...")
-            task.wait(10)
         end
     end
 end)
