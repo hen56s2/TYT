@@ -32,7 +32,7 @@ local function saveServerID(id)
 end
 
 local function TPReturner()
-    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
+    local baseURL = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
     if foundAnything ~= "" then
         baseURL = baseURL .. "&cursor=" .. foundAnything
     end
@@ -57,7 +57,7 @@ local function TPReturner()
 
             if possible then
                 saveServerID(id)
-                print("[HOP] Teleporting to server ID:", id)
+                print("[HOP] Teleporting to server ID:", id, "with", v.playing, "players")
                 TeleportService:TeleportToPlaceInstance(PlaceID, id, LocalPlayer)
                 wait(4)
                 return
@@ -193,9 +193,9 @@ task.spawn(function()
         local foundNames = scanForBrainrots()
 
         if #foundNames > 0 then
-            print("[FOUND] Brainrots in server: ", table.concat(foundNames, ", "))
+            print("[FOUND] Brainrots in server: " .. table.concat(foundNames, ", "))
             sendCombinedWebhookMessage(foundNames)
-            task.wait(10) -- recheck in 10s to avoid spamming
+            task.wait(10) -- recheck in 10s
         else
             print("[NO BRAINROT] Hopping in " .. hopTimer .. "s...")
             task.wait(hopTimer)
